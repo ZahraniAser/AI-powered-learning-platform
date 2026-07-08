@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Coding Tutor</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 700px;
+      margin: 40px auto;
+      padding: 0 20px;
+      color: #222;
+    }
+    h1 { color: #2c3e50; }
+    input, textarea, button {
+      font-size: 15px;
+      padding: 8px;
+      margin: 6px 0;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    button {
+      background: #2c7be5;
+      color: white;
+      border: none;
+      cursor: pointer;
+      width: auto;
+      padding: 10px 18px;
+    }
+    button:hover { background: #1a5fc0; }
+    .box {
+      background: #f5f7fa;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      padding: 15px;
+      margin-top: 15px;
+      white-space: pre-wrap;
+    }
+    .pass { color: green; font-weight: bold; }
+    .fail { color: #c0392b; font-weight: bold; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <h1>AI Coding Tutor</h1>
+  <p>Type a topic you want to learn, and the AI will teach it and give you an exercise.</p>
+
+  <input type="text" id="topic" placeholder="e.g. loops in Python" />
+  <button onclick="getLesson()">Teach me</button>
+
+  <div id="lessonBox" class="box hidden">
+    <h3>Lesson</h3>
+    <div id="lessonText"></div>
+    <h3>Exercise</h3>
+    <div id="exerciseText"></div>
+
+    <h3>Your answer</h3>
+    <textarea id="userCode" rows="8" placeholder="Write your code here..."></textarea>
+    <button onclick="checkAnswer()">Check my answer</button>
+  </div>
+
+  <div id="feedbackBox" class="box hidden">
+    <h3>Feedback</h3>
+    <div id="result"></div>
+    <div id="feedbackText"></div>
+  </div>
+
+  <script>
+    let currentLessonId = null;
+
+    async function getLesson() {
+      const topic = document.getElementById("topic").value;
+      if (!topic.trim()) {
+        alert("Please type a topic first.");
+        return;
+      }
+
+      document.getElementById("lessonText").innerText = "Loading...";
+      document.getElementById("lessonBox").classList.remove("hidden");
+      document.getElementById("feedbackBox").classList.add("hidden");
+
+      try {
+        const res = await fetch("/generate-lesson", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ topic: topic })
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          document.getElementById("lessonText").innerText = "Error: " + data.detail;
+          return;
+        }
+
+        currentLessonId = data.lesson_id;
+        document.getElementById("lessonText").innerText = data.lesson;
+        document.getElementById("exerciseText").innerText = data.exercise;
+      } catch (err) {
+        document.getElementById("lessonText").innerText = "Something went wrong.";
+      }
+    }
+
+    async function checkAnswer() {
+      const code = document.getElementById("userCode").value;
+      if (!code.trim()) {
+        alert("Please write your answer first.");
+        return;
+      }
+
+      document.getElementById("feedbackText").innerText = "Checking...";
+      document.getElementById("result").innerText = "";
+      document.getElementById("feedbackBox").classList.remove("hidden");
+
+      try {
+        const res = await fetch("/check-answer", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ lesson_id: currentLessonId, user_code: code })
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          document.getElementById("feedbackText").innerText = "Error: " + data.detail;
+          return;
+        }
+
+        const result = document.getElementById("result");
+        if (data.passed) {
+          result.innerText = "Correct!";
+          result.className = "pass";
+        } else {
+          result.innerText = "Not quite yet.";
+          result.className = "fail";
+        }
+        document.getElementById("feedbackText").innerText = data.feedback;
+      } catch (err) {
+        document.getElementById("feedbackText").innerText = "Something went wrong.";
+      }
+    }
+  </script>
+</body>
+</html>
