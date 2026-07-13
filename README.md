@@ -3,14 +3,14 @@
 A small web app that teaches a programming topic, gives an exercise, and checks
 your answer using AI.
 
-Built with FastAPI, PostgreSQL (Neon), and the Google Gemini API.
+Built with Streamlit, PostgreSQL (Neon), and the Google Gemini API.
 
 ## How it works
 
 1. You type a topic (e.g. "loops in Python").
 2. The AI writes a short lesson and one exercise.
 3. You write your answer and submit it.
-4. The AI checks it and gives feedback.
+4. The AI checks it and gives feedback (pass/fail plus an explanation).
 
 Lessons and submissions are saved in the database.
 
@@ -45,24 +45,30 @@ pip install -r requirements.txt
 ### 5. Run it
 
 ```
-uvicorn main:app --reload
+streamlit run app.py
 ```
 
-Then open http://127.0.0.1:8000 in your browser.
+Your browser will open automatically at http://localhost:8501
 
 ## Files
 
-- `main.py` - the FastAPI app and routes
+- `app.py` - the Streamlit app (the whole interface and logic)
 - `database.py` - database connection setup
 - `models.py` - the database tables
 - `ai.py` - the Gemini calls (generate lesson, check answer)
-- `static/index.html` - the frontend page
+- `.streamlit/config.toml` - the dark theme settings
 
-## Deploying online
+## Deploying online (free)
 
-The whole thing is one app, so you can deploy it to a free host like Render:
+You can host this for free on Streamlit Community Cloud:
 
-- Push this folder to GitHub.
-- On Render, create a new Web Service from the repo.
-- Set the start command to: `uvicorn main:app --host 0.0.0.0 --port $PORT`
-- Add `DATABASE_URL` and `GEMINI_API_KEY` as environment variables.
+1. Push this folder to a GitHub repository.
+   (Make sure `.env` is NOT pushed - the included `.gitignore` handles this.)
+2. Go to https://share.streamlit.io and sign in with GitHub.
+3. Click "New app" and pick your repository. Set the main file to `app.py`.
+4. In the app's "Secrets" settings, add your two keys:
+   ```
+   DATABASE_URL = "your neon string"
+   GEMINI_API_KEY = "your gemini key"
+   ```
+5. Deploy. You get a public link you can share.
