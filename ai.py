@@ -16,16 +16,26 @@ model = genai.GenerativeModel("gemini-2.5-flash")
 
 def generate_lesson(topic):
     prompt = (
-        f"You are a programming teacher. Create a short beginner lesson about "
-        f"'{topic}' (under 200 words). Then give ONE small coding exercise about it.\n\n"
-        f"Format your reply exactly like this:\n"
+        f"You are a programming teacher. You ONLY teach programming and software "
+        f"development topics (coding languages, programming concepts, tools, computer "
+        f"science).\n\n"
+        f"The user asked to learn about: '{topic}'\n\n"
+        f"If this topic is NOT about programming or software development, reply with "
+        f"only this single word and nothing else:\n"
+        f"NOT_PROGRAMMING\n\n"
+        f"Otherwise, create a short beginner lesson (under 200 words) and ONE small "
+        f"coding exercise about it. Format your reply exactly like this:\n"
         f"LESSON:\n"
         f"<the lesson here>\n"
         f"EXERCISE:\n"
         f"<the exercise here>"
     )
     response = model.generate_content(prompt)
-    text = response.text
+    text = response.text.strip()
+
+    # If the topic wasn't about programming, signal that with None.
+    if "NOT_PROGRAMMING" in text.upper() and "LESSON:" not in text.upper():
+        return None, None
 
     # Split the reply into the lesson part and the exercise part.
     if "EXERCISE:" in text:
@@ -57,3 +67,25 @@ def check_answer(exercise, user_code):
     feedback = text.split("\n", 1)[1].strip() if "\n" in text else text
 
     return passed, feedback
+
+
+def suggest_next_topics(done_topics):
+    done_text = ", ".join(done_topics) if done_topics else "nothing yet"
+    prompt = (
+        f"You are a programming teacher guiding a student along a C# learning path, "
+        f"from beginner to more advanced.\n"
+        f"The student has already practiced these topics: {done_text}.\n"
+        f"Suggest the next 4 topics they should learn, in a sensible order along the "
+        f"path, and avoid topics they have already done.\n"
+        f"Reply with only the 4 topics, each on its own line. No numbering, no extra text."
+    )
+    response = model.generate_content(prompt)
+    text = response.text.strip()
+
+    # Turn the reply into a clean list, removing any bullets or numbers.
+    topics = []
+    for line in text.split("\n"):
+        line = line.strip("-*0123456789. ").strip()
+        if line:
+            topics.append(line)
+    return topics[:4]

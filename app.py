@@ -10,43 +10,148 @@ models.Base.metadata.create_all(bind=engine)
 st.set_page_config(page_title="AI Coding Tutor", page_icon="📘")
 
 st.title("AI Coding Tutor")
-st.write("Type a topic you want to learn, and the AI will teach it and give you an exercise.")
 
-# Keep the current lesson in memory between button clicks.
-if "lesson" not in st.session_state:
+
+# Show a friendly message instead of a scary error when the free AI limit is hit.
+def show_error(e):
+    text = str(e).lower()
+    if "429" in text or "quota" in text or "rate" in text:
+        st.warning("The free AI limit was reached (only a few requests per minute are "
+                   "allowed). Please wait about a minute and try again.")
+    else:
+        st.error(f"Something went wrong: {e}")
+
+
+# Generate a lesson for a topic, save it, and remember it. Used by both the
+# "Teach me" button and the suggested-topic buttons.
+def teach(topic_text):
+    with st.spinner("Thinking..."):
+        try:
+            lesson_text, exercise = ai.generate_lesson(topic_text)
+
+            if lesson_text is None:
+                st.warning("Please enter a programming topic — for example: "
+                           "loops, functions, arrays, or classes in C#.")
+                return
+
+            db = SessionLocal()
+            lesson = models.Lesson(
+                user_id=st.session_state.user_id,
+                topic=topic_text,
+                lesson_text=lesson_text,
+                exercise=exercise,
+            )
+            db.add(lesson)
+            db.commit()
+            db.refresh(lesson)
+            st.session_state.lesson_id = lesson.id
+            db.close()
+
+            st.session_state.lesson = lesson_text
+            st.session_state.exercise = exercise
+            st.session_state.topic = topic_text
+        except Exception as e:
+            show_error(e)
+
+
+# --- Set up remembered values ---
+if "user_id" not in st.session_state:
+    st.session_state.user_id = None
+    st.session_state.username = None
     st.session_state.lesson_id = None
     st.session_state.lesson = None
     st.session_state.exercise = None
+    st.session_state.topic = None
+    st.session_state.suggestions = []
 
-topic = st.text_input("Topic", placeholder="e.g. loops in Python")
 
+# --- Step 1: ask for a name before anything else ---
+if st.session_state.user_id is None:
+    st.write("Enter your name to start learning. Your progress will be saved.")
+    name = st.text_input("Your name")
+    if st.button("Start"):
+        if not name.strip():
+            st.warning("Please type your name.")
+        else:
+            db = SessionLocal()
+            user = db.query(models.User).filter(
+                models.User.username == name.strip()
+            ).first()
+            if not user:
+                user = models.User(username=name.strip())
+                db.add(user)
+                db.commit()
+                db.refresh(user)
+            st.session_state.user_id = user.id
+            st.session_state.username = user.username
+            db.close()
+            st.rerun()
+    st.stop()
+
+
+# --- Logged in from here on ---
+st.write(f"Welcome, {st.session_state.username}!")
+
+if st.button("Switch user"):
+    st.session_state.user_id = None
+    st.session_state.lesson = None
+    st.session_state.suggestions = []
+    st.rerun()
+
+
+# --- Load this user's data once (used by progress, suggestions, and history) ---
+db = SessionLocal()
+subs = db.query(models.Submission).filter(
+    models.Submission.user_id == st.session_state.user_id
+).order_by(models.Submission.created_at.desc()).all()
+lessons = db.query(models.Lesson).filter(
+    models.Lesson.user_id == st.session_state.user_id
+).all()
+db.close()
+
+lesson_by_id = {lesson.id: lesson for lesson in lessons}
+done_topics = sorted(set(s.topic for s in subs if s.topic))
+
+
+# --- Progress summary ---
+if subs:
+    st.subheader("Your progress")
+    total = len(subs)
+    passed = sum(1 for s in subs if s.passed)
+    st.write(f"Exercises attempted: {total}  |  Passed: {passed}")
+    if done_topics:
+        st.write("Topics practiced: " + ", ".join(done_topics))
+
+
+# --- Suggested next topics ---
+st.subheader("Suggested for you")
+st.write("Get topic ideas for what to learn next, based on what you've done.")
+if st.button("Suggest what to learn next"):
+    with st.spinner("Thinking..."):
+        try:
+            st.session_state.suggestions = ai.suggest_next_topics(done_topics)
+        except Exception as e:
+            show_error(e)
+
+if st.session_state.suggestions:
+    st.write("Click a topic to start learning it:")
+    for i, suggested in enumerate(st.session_state.suggestions):
+        if st.button(suggested, key=f"suggestion_{i}"):
+            teach(suggested)
+
+
+# --- Pick your own topic ---
+st.subheader("Learn something new")
+st.write("Or type a programming topic you want to learn.")
+topic = st.text_input("Topic", placeholder="e.g. loops in C#")
 if st.button("Teach me"):
     if not topic.strip():
         st.warning("Please type a topic first.")
     else:
-        with st.spinner("Thinking..."):
-            try:
-                lesson_text, exercise = ai.generate_lesson(topic)
+        teach(topic)
 
-                # Save the lesson to the database.
-                db = SessionLocal()
-                lesson = models.Lesson(
-                    topic=topic,
-                    lesson_text=lesson_text,
-                    exercise=exercise,
-                )
-                db.add(lesson)
-                db.commit()
-                db.refresh(lesson)
-                st.session_state.lesson_id = lesson.id
-                db.close()
 
-                st.session_state.lesson = lesson_text
-                st.session_state.exercise = exercise
-            except Exception as e:
-                st.error(f"Something went wrong: {e}")
-
-# Show the lesson and exercise once we have one.
+# --- Show the current lesson and check the answer ---
 if st.session_state.lesson:
     st.subheader("Lesson")
     st.markdown(st.session_state.lesson)
@@ -63,12 +168,15 @@ if st.session_state.lesson:
         else:
             with st.spinner("Checking..."):
                 try:
-                    passed, feedback = ai.check_answer(st.session_state.exercise, user_code)
+                    passed, feedback = ai.check_answer(
+                        st.session_state.exercise, user_code
+                    )
 
-                    # Save the submission.
                     db = SessionLocal()
                     submission = models.Submission(
+                        user_id=st.session_state.user_id,
                         lesson_id=st.session_state.lesson_id,
+                        topic=st.session_state.topic,
                         user_code=user_code,
                         feedback=feedback,
                         passed=passed,
@@ -84,4 +192,25 @@ if st.session_state.lesson:
                         st.error("Not quite yet.")
                     st.markdown(feedback)
                 except Exception as e:
-                    st.error(f"Something went wrong: {e}")
+                    show_error(e)
+
+
+# --- History of past attempts ---
+st.subheader("My history")
+if subs:
+    for s in subs:
+        result = "Passed" if s.passed else "Not passed"
+        date = s.created_at.strftime("%d %b %Y, %H:%M") if s.created_at else ""
+        with st.expander(f"{s.topic}  —  {result}  —  {date}"):
+            lesson = lesson_by_id.get(s.lesson_id)
+            if lesson:
+                st.markdown("**The lesson you were given:**")
+                st.markdown(lesson.lesson_text)
+                st.markdown("**Exercise:**")
+                st.markdown(lesson.exercise)
+            st.markdown("**Your answer:**")
+            st.code(s.user_code)
+            st.markdown("**Feedback:**")
+            st.markdown(s.feedback)
+else:
+    st.write("No history yet. Complete an exercise and it will show up here.")
