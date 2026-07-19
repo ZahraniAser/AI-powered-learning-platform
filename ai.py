@@ -77,6 +77,8 @@ def suggest_next_topics(done_topics):
         f"The student has already practiced these topics: {done_text}.\n"
         f"Suggest the next 4 topics they should learn, in a sensible order along the "
         f"path, and avoid topics they have already done.\n"
+        f"Every topic must say the language, written like this: "
+        f"'Variables and data types in C#'.\n"
         f"Reply with only the 4 topics, each on its own line. No numbering, no extra text."
     )
     response = model.generate_content(prompt)
