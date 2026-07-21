@@ -8,8 +8,10 @@ Built with Streamlit, PostgreSQL (Neon), and the Google Gemini API.
 ## Features
 
 - Enter your name to start - your progress is saved under it
-- The AI writes a short lesson and one exercise for any programming topic
-- The AI checks your answer, gives pass/fail and an explanation
+- For any programming topic, the AI writes a full lesson: an explanation, two or
+  three worked examples with code, a practice task you can try (with the solution
+  hidden until you click to reveal it), and then an exercise to solve
+- The AI checks your exercise answer, gives pass/fail and an explanation
 - Only teaches programming (other topics are politely turned away)
 - Tracks how many exercises you attempted and passed, and which topics
 - Suggests what to learn next based on what you've already done
@@ -54,7 +56,7 @@ Your browser will open automatically at http://localhost:8501
 - `app.py` - the Streamlit app (the interface and the glue)
 - `database.py` - database connection setup
 - `models.py` - the database tables (users, lessons, submissions)
-- `ai.py` - the Gemini calls (generate lesson, check answer, suggest topics)
+- `ai.py` - the Gemini calls (generate the four-part lesson, check answer, suggest topics)
 - `.streamlit/config.toml` - the dark theme settings
 
 ## Deploying online (free)

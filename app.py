@@ -27,7 +27,8 @@ def show_error(e):
 def teach(topic_text):
     with st.spinner("Thinking..."):
         try:
-            lesson_text, exercise = ai.generate_lesson(topic_text)
+            lesson_text, practice_task, practice_solution, exercise = \
+                ai.generate_lesson(topic_text)
 
             if lesson_text is None:
                 st.warning("Please enter a programming topic — for example: "
@@ -48,6 +49,8 @@ def teach(topic_text):
             db.close()
 
             st.session_state.lesson = lesson_text
+            st.session_state.practice_task = practice_task
+            st.session_state.practice_solution = practice_solution
             st.session_state.exercise = exercise
             st.session_state.topic = topic_text
         except Exception as e:
@@ -60,6 +63,8 @@ if "user_id" not in st.session_state:
     st.session_state.username = None
     st.session_state.lesson_id = None
     st.session_state.lesson = None
+    st.session_state.practice_task = None
+    st.session_state.practice_solution = None
     st.session_state.exercise = None
     st.session_state.topic = None
     st.session_state.suggestions = []
@@ -95,6 +100,11 @@ st.write(f"Welcome, {st.session_state.username}!")
 if st.button("Switch user"):
     st.session_state.user_id = None
     st.session_state.lesson = None
+    st.session_state.practice_task = None
+    st.session_state.practice_solution = None
+    st.session_state.exercise = None
+    st.session_state.topic = None
+    st.session_state.lesson_id = None
     st.session_state.suggestions = []
     st.rerun()
 
@@ -129,7 +139,11 @@ st.write("Get topic ideas for what to learn next, based on what you've done.")
 if st.button("Suggest what to learn next"):
     with st.spinner("Thinking..."):
         try:
-            st.session_state.suggestions = ai.suggest_next_topics(done_topics)
+            # Base suggestions on what the user is currently learning, if anything.
+            anchor = st.session_state.topic
+            if not anchor and subs:
+                anchor = subs[0].topic  # otherwise their most recent topic
+            st.session_state.suggestions = ai.suggest_next_topics(anchor, done_topics)
         except Exception as e:
             show_error(e)
 
@@ -155,6 +169,16 @@ if st.button("Teach me"):
 if st.session_state.lesson:
     st.subheader("Lesson")
     st.markdown(st.session_state.lesson)
+
+    # Practice: a try-it-yourself step. The box is a scratchpad (not graded),
+    # and the solution is hidden until the learner clicks to reveal it.
+    if st.session_state.practice_task:
+        st.subheader("Practice (try it yourself, then reveal the solution)")
+        st.markdown(st.session_state.practice_task)
+        st.text_area("Your practice attempt (not graded)", height=150,
+                     key="practice_box")
+        with st.expander("Show solution"):
+            st.markdown(st.session_state.practice_solution)
 
     st.subheader("Exercise")
     st.markdown(st.session_state.exercise)
