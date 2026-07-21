@@ -11,7 +11,7 @@ if not API_KEY:
 genai.configure(api_key=API_KEY)
 
 # Free-tier model. You can change this to another Gemini model if you want.
-model = genai.GenerativeModel("gemini-2.5-flash")
+model = genai.GenerativeModel("gemini-3.5-flash")
 
 
 def generate_lesson(topic):
