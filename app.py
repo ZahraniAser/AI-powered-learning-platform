@@ -25,10 +25,11 @@ def show_error(e):
 # Generate a lesson for a topic, save it, and remember it. Used by both the
 # "Teach me" button and the suggested-topic buttons.
 def teach(topic_text):
+    level = st.session_state.get("level", "Beginner")
     with st.spinner("Thinking..."):
         try:
             lesson_text, practice_task, practice_solution, exercise = \
-                ai.generate_lesson(topic_text)
+                ai.generate_lesson(topic_text, level)
 
             if lesson_text is None:
                 st.warning("Please enter a programming topic — for example: "
@@ -135,7 +136,15 @@ if subs:
 
 # --- Suggested next topics ---
 st.subheader("Suggested for you")
-st.write("Get topic ideas for what to learn next, based on what you've done.")
+st.write("Pick a difficulty level and get topic ideas for what to learn next.")
+
+level = st.radio(
+    "Difficulty level",
+    ["Beginner", "Intermediate", "Advanced"],
+    horizontal=True,
+    key="level",
+)
+
 if st.button("Suggest what to learn next"):
     with st.spinner("Thinking..."):
         try:
@@ -143,7 +152,9 @@ if st.button("Suggest what to learn next"):
             anchor = st.session_state.topic
             if not anchor and subs:
                 anchor = subs[0].topic  # otherwise their most recent topic
-            st.session_state.suggestions = ai.suggest_next_topics(anchor, done_topics)
+            st.session_state.suggestions = ai.suggest_next_topics(
+                anchor, done_topics, level
+            )
         except Exception as e:
             show_error(e)
 

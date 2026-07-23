@@ -14,16 +14,18 @@ genai.configure(api_key=API_KEY)
 model = genai.GenerativeModel("gemini-3.5-flash")
 
 
-def generate_lesson(topic):
+def generate_lesson(topic, level="Beginner"):
     prompt = (
         f"You are a programming teacher. You ONLY teach programming and software "
         f"development topics (coding languages, programming concepts, tools, computer "
         f"science).\n\n"
-        f"The user asked to learn about: '{topic}'\n\n"
+        f"The user asked to learn about: '{topic}'\n"
+        f"Teach it at a {level} level. Match the depth, vocabulary and examples to "
+        f"that level.\n\n"
         f"If this topic is NOT about programming or software development, reply with "
         f"only this single word and nothing else:\n"
         f"NOT_PROGRAMMING\n\n"
-        f"Otherwise, write a detailed but beginner-friendly lesson that TEACHES before "
+        f"Otherwise, write a detailed lesson that TEACHES before "
         f"it tests. Give these four parts, using EXACTLY these labels on their own lines:\n\n"
         f"LESSON:\n"
         f"A clear explanation of the concept in simple words, followed by two or three "
@@ -90,7 +92,7 @@ def check_answer(exercise, user_code):
     return passed, feedback
 
 
-def suggest_next_topics(current_topic, done_topics):
+def suggest_next_topics(current_topic, done_topics, level="Beginner"):
     done_text = ", ".join(done_topics) if done_topics else "nothing yet"
 
     if current_topic:
@@ -100,11 +102,14 @@ def suggest_next_topics(current_topic, done_topics):
             f"the same technology or subject area.\n"
         )
     else:
-        focus = "Suggest 4 good beginner C# topics to start with.\n"
+        focus = "Suggest 4 good C# topics to start with.\n"
 
     prompt = (
         f"You are a programming teacher planning what a student should learn next.\n"
         f"{focus}"
+        f"All 4 topics must be at a {level} level of difficulty. This matters: the "
+        f"student has chosen this level on purpose, so do not give easier topics than "
+        f"this even if they have only done simple things so far.\n"
         f"The student has already practiced: {done_text}. Do not repeat those.\n"
         f"Every topic must name its language or technology, for example "
         f"'Variables and data types in C#' or 'Defining models in Odoo'.\n"
